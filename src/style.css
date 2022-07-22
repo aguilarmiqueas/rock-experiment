@@ -1,0 +1,173 @@
+@font-face {
+    font-family: 'Neue Montreal Bold';
+    src: url(fonts/PPNeueMontreal-Bold.otf);
+}
+
+@font-face {
+    font-family: 'Neue Montreal Book';
+    src: url(fonts/PPNeueMontreal-Book.otf);
+}
+
+*
+{
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body
+{
+    overflow: hidden;
+}
+
+.webgl
+{
+    position: fixed;
+    top: 0;
+    left: 0;
+    outline: none;
+}
+
+main {
+    display: flex;
+    justify-content: center;
+}
+
+.intro {
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    height: 100vh;
+    width: 100vw;
+    background-color: rgba(72, 49, 5, 0.379);
+    z-index: 2;
+    overflow: hidden;
+}
+
+.titleWrap h1 {
+    color: white;
+    font-family: 'Neue Montreal Bold';
+    font-weight: 400;
+    font-size: clamp(1vw, 10em, 25vw);
+    display: none
+}
+
+.intro .titleWrap {
+    z-index: 1;
+    position: absolute;
+    text-align: center;
+    width: 100%;
+    left: 0;
+    top: 33%;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.buttonWrap {
+    position: absolute;
+    bottom: 40%;
+    z-index: 1;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.intro button {
+    background: none;
+    outline: none;
+    border: none;
+    position: relative;
+
+    color: white;
+    font-family: 'Neue Montreal Book';
+        font-size: clamp(1vw, 1.4em, 5vw);
+
+    margin: 0 .5em;
+    display: none;
+    transition: margin .15s;
+}
+
+.intro button:hover {
+    margin: 0 1em;
+    cursor: pointer
+}
+
+.button-before {
+    display: block;
+    width: 1.5em;
+    height: 1px;
+    background-color: white;
+}
+
+.button-after {
+    display: block;
+    width: 1.5em;
+    height: 1px;
+    background-color: white;
+}
+
+.cursor {
+    width: 45px;
+    height: 45px;
+    position: absolute;
+    z-index: 3;
+    left: 0;
+    top: 0;
+    outline: 1px white solid;
+    border-radius: 50%;
+    pointer-events: none;
+    transition: all .25s
+}
+
+.cursor.hovered {
+    width: 120px;
+    height: 120px;
+}
+
+.loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 4;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgb(27, 15, 9);
+}
+
+.loader h2 {
+    color: rgb(250, 214, 183);
+    position: absolute;
+    bottom: 2.5vh;
+    left: 5vw;
+    font-family: "Neue Montreal Bold";
+    font-size: 12vw;
+}
+
+.card {
+    z-index: 2;
+    background-color: white;
+    padding: 4vh 2vw;
+    border: 1px solid black;
+    position: absolute;
+    transform-origin: 'center left';
+    transform: scaleX(0);
+
+    font-size: 2.5vw;
+    font-family: "Neue Montreal Book";
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+}
+
+.card h2 {
+    margin-bottom: 1.5vh;
+}
+
+.card p {
+    font-size: 1vw;
+    margin: .5vh;
+}

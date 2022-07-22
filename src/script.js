@@ -32,11 +32,11 @@ const loader = new OBJLoader();
 const textLoader = new THREE.TextureLoader();
 const rgbeLoader = new RGBELoader();
 
-rgbeLoader.load('/models/env.hdr', texture => {
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    scene.background = texture;
-    scene.environment = texture;
-})
+// rgbeLoader.load('/models/env.hdr', texture => {
+//     texture.mapping = THREE.EquirectangularReflectionMapping;
+//     scene.background = texture;
+//     scene.environment = texture;
+// })
 const rocksToLoad = ['rock1', 'rock2', 'rock3', 'rock4'];
 let text = textLoader.load('/models/text2.jpg');
 let disp = textLoader.load('/models/disp.jpg')

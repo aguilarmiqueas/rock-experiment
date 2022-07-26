@@ -46,10 +46,15 @@ let disp = textLoader.load('/models/disp.jpg')
 let bg = textLoader.load('/models/bg.jpg');
 let cloud = textLoader.load('/models/cloud.png')
 scene.background = bg;
-
+let pointMaterial = null;
 let floor = null;
 const objects = []
 const gltfLoader = new GLTFLoader();
+
+let pathParticles = []
+let predefinedPathParticles = []
+let numPar = 250
+
 gltfLoader.load('/models/environ/environ-cyl.gltf', obj => {
     let o = obj.scene
     o.children[0].visible = false;
@@ -85,6 +90,68 @@ gltfLoader.load('/models/environ/environ-cyl.gltf', obj => {
         newMeshGeo.center();
         let newMeshMat = obj1.material;
 
+            pointMaterial = new THREE.ShaderMaterial(
+            {
+                vertexShader,
+                fragmentShader,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            })
+            let randomParticlesRadius = 25;
+            for (let i = 0; i < 8; i++) {
+                let random = Math.random()
+                let heightFactor = (random * randomParticlesRadius) / randomParticlesRadius
+                let path = new THREE.CatmullRomCurve3([
+                    new THREE.Vector3(
+                        Math.cos(random + 0) * (15 + random * randomParticlesRadius),
+                        (random * 35) * heightFactor + 2,
+                        Math.sin(random + 0) * (15 + random * randomParticlesRadius)
+                    ),
+                    new THREE.Vector3(
+                        Math.cos(random + 2) * (15 + random * randomParticlesRadius),
+                        (random * 35) * heightFactor + 2,
+                        Math.sin(random + 2) * (15 + random * randomParticlesRadius)
+                    ),
+                    new THREE.Vector3(
+                        Math.cos(random + 4) * (15 + random * randomParticlesRadius),
+                        (random * 35) * heightFactor + 2,
+                        Math.sin(random + 4) * (15 + random * randomParticlesRadius)
+                    ),
+                    new THREE.Vector3(
+                        Math.cos(random + 6) * (15 + random * randomParticlesRadius),
+                        (random * 25) * heightFactor + 2,
+                        Math.sin(random + 6) * (15 + random * randomParticlesRadius)
+                    ),
+                ])
+                let points = path.getPoints(numPar);
+                let posArray = new Float32Array(numPar * 3)
+                let opArray = new Float32Array(numPar)
+                
+                for (let i = 0; i < points.length; i++) {
+                    posArray[i + 0] = points[i].x
+                    posArray[i + 1] = points[i].y
+                    posArray[i + 2] = points[i].z
+                    opArray[i] = 1.;
+                }
+
+                let posAttr = new THREE.BufferAttribute(posArray, 3)
+                let opAttr = new THREE.BufferAttribute(opArray, 1)
+
+                let mesh = new THREE.Points(new THREE.BufferGeometry(), pointMaterial);
+                mesh.geometry.setAttribute('position', posAttr)
+                mesh.geometry.setAttribute('opacity', opAttr)
+                console.log(mesh)
+                scene.add(mesh)
+
+                let time = clock.getElapsedTime();
+                predefinedPathParticles.push({
+                    particles: mesh,
+                    time,
+                    path
+                })
+            }
+
+
         for(let v = 0; v < 9; v++) {
             let newMesh = new THREE.Mesh(newMeshGeo.clone(), newMeshMat.clone())
             let scale = 0.01 * (Math.random()  + .5);
@@ -112,6 +179,7 @@ gltfLoader.load('/models/environ/environ-cyl.gltf', obj => {
 
             scene.add(newMesh)
             objects.push(newMesh)
+
         }
     });
 }
@@ -275,12 +343,12 @@ const cardParams = {
     target: {position: new THREE.Vector3(0,0,0)},
     visible: false,
     distance: 0
-}
+}   
 
 let oldTl = new gsap.timeline()
 let oldObjPos = camera.position
-let pathParticles = []
-let numPar = 250
+
+
 
 window.addEventListener('pointerup', e => {
     cursor.x = (e.clientX / sizes.width)*2-1;
@@ -305,15 +373,7 @@ window.addEventListener('pointerup', e => {
                 obj.material.wireframe = true;
                 obj.castShadow = false;
                 obj.receiveShadow = false;
-                let pointLight = new THREE.PointLight(0xff5500, 10, 10, .9);
-                pointLight.position.set(
-                    obj.position.x,
-                    obj.position.y,
-                    obj.position.z
-                )
-                pointLight.castShadow = true;
-                console.log(pointLight.position, obj.position)
-                // scene.add(pointLight);
+                
                 const curve = new THREE.CatmullRomCurve3([
                     oldObjPos.clone(),
                     camera.position.clone(),
@@ -334,12 +394,7 @@ window.addEventListener('pointerup', e => {
                     obj.position.z
                 )
                 const points = curve.getPoints(numPar)
-                const pointMaterial = new THREE.ShaderMaterial({ 
-                depthWrite: false,
-                blending: THREE.AdditiveBlending,
-                vertexShader,
-                fragmentShader,
-                })
+                
                 const pointGeo = new THREE.BufferGeometry();
                 const posArray = new Float32Array(numPar * 3);
                 const opacityArray = new Float32Array(numPar);
@@ -533,7 +588,7 @@ const tick = () =>
     camera.rotateX(lerpedCursor.y * .95)
     // controls.update()
 
-    for (let pathParticle of pathParticles) {
+    for (let pathParticle of [...pathParticles, ...predefinedPathParticles]) {
         let pos = pathParticle.particles.geometry.attributes.position;
         let opacity = pathParticle.particles.geometry.attributes.opacity;
         for (let i = 0; i < numPar; i++) {

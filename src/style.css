@@ -111,13 +111,16 @@ main {
     width: 45px;
     height: 45px;
     position: absolute;
+    display: block;
     z-index: 3;
     left: 0;
     top: 0;
-    outline: 1px white solid;
+    border: 1px white solid;
     border-radius: 50%;
+    -webkit-border-radius: 50%;
     pointer-events: none;
-    transition: all .25s
+    transition: all .25s;
+    overflow: hidden;
 }
 
 .cursor.hovered {
@@ -153,7 +156,7 @@ main {
     transform-origin: 'center left';
     transform: scaleX(0);
 
-    font-size: 2.5vw;
+    font-size: clamp(1.25em, 2.5vw, 6em);
     font-family: "Neue Montreal Book";
 
     display: flex;
@@ -168,6 +171,6 @@ main {
 }
 
 .card p {
-    font-size: 1vw;
+    font-size: clamp(0.5em, 1vw, 6em);
     margin: .5vh;
 }

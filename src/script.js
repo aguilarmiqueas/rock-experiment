@@ -4,14 +4,14 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'lil-gui'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import { VertexNormalsHelper } from 'three/examples/jsm/helpers/VertexNormalsHelper'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
-import { BloomPass } from 'three/examples/jsm/postprocessing/BloomPass'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader'
 import { gsap } from 'gsap'
-import { VectorKeyframeTrack } from 'three'
+import fragmentShader from './fragmentShader.glsl'
+import vertexShader from './vertexShader.glsl'
+import { PointLight } from 'three'
 
 
 /**
@@ -25,6 +25,9 @@ const cursorDom = document.querySelector('.cursor')
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
 
+// Clock
+const clock = new THREE.Clock()
+
 // Scene
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog('#dbc787', 1, 125)
@@ -32,53 +35,19 @@ const loader = new OBJLoader();
 const textLoader = new THREE.TextureLoader();
 const rgbeLoader = new RGBELoader();
 
-// rgbeLoader.load('/models/env.hdr', texture => {
-//     texture.mapping = THREE.EquirectangularReflectionMapping;
-//     scene.background = texture;
-//     scene.environment = texture;
-// })
-const rocksToLoad = ['rock1', 'rock2', 'rock3', 'rock4'];
+rgbeLoader.load('/models/env.hdr', texture => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.background = texture;
+    scene.environment = texture;
+})
+const rocksToLoad = ['rock1', 'rock2', 'rock3', 'rock4', 'rock5'];
 let text = textLoader.load('/models/text2.jpg');
 let disp = textLoader.load('/models/disp.jpg')
 let bg = textLoader.load('/models/bg.jpg');
 let cloud = textLoader.load('/models/cloud.png')
 scene.background = bg;
 
-for (let [i, rock] of rocksToLoad.entries()) {
-    console.log(rock)
-    let ao = textLoader.load(`/models/${rock}/${rock}_ao.png`);
-    let normal = textLoader.load(`/models/${rock}/${rock}_normal.png`);
-    let curve = textLoader.load(`/models/${rock}/${rock}_curve.png`);
-    loader.load(`/models/${rock}/${rock}.obj`, mesh => {
-        let obj = mesh.children[0]
-        obj.material.aoMap = ao;
-        obj.material.normalMap = normal;
-        obj.material.displacementScale = .5;
-        obj.material.map = text;
-        obj.material.bumpMap = text;
-        obj.material.normalScale = new THREE.Vector2(2, 2)
-        obj.castShadow = true;
-
-        let newMeshGeo = obj.geometry;
-        let newMeshMat = obj.material;
-
-        for(let v = 0; v < 12; v++) {
-            let newMesh = new THREE.Mesh(newMeshGeo.clone(), newMeshMat.clone())
-            let scale = 0.01 * (Math.random()  + .5);
-            newMesh.scale.set(scale, scale, scale);
-            let num = Math.random() * Math.PI * 2
-            newMesh.position.x = 1 + ((v + 1) * 2.25) * Math.cos(num);
-            newMesh.position.z = 1 + ((v + 1) * 2.25) * Math.sin(num);
-            newMesh.rotation.y = Math.random() * Math.PI * 2;
-            newMesh.castShadow = true;
-            newMesh.receiveShadow = true;
-            newMesh.position.y = -.75;
-            scene.add(newMesh)
-            objects.push(newMesh)
-        }
-    });
-}
-
+let floor = null;
 const objects = []
 const gltfLoader = new GLTFLoader();
 gltfLoader.load('/models/environ/environ-cyl.gltf', obj => {
@@ -87,7 +56,6 @@ gltfLoader.load('/models/environ/environ-cyl.gltf', obj => {
 
     o.children[1].material = new THREE.MeshPhongMaterial({
         map: text,
-        roughness: 1,
         aoMap: text,
         bumpMap: text,
         bumpScale: 0.005
@@ -96,7 +64,58 @@ gltfLoader.load('/models/environ/environ-cyl.gltf', obj => {
     o.children[1].castShadow = true
 
     o.children[1].scale.set(500, 500, 500)
+    floor = o.children[1]
     scene.add(o.children[1])
+
+    for (let [i, rock] of rocksToLoad.entries()) {
+    let ao = textLoader.load(`/models/${rock}/${rock}_ao.png`);
+    let normal = textLoader.load(`/models/${rock}/${rock}_normal.png`);
+    let curve = textLoader.load(`/models/${rock}/${rock}_curve.png`);
+    loader.load(`/models/${rock}/${rock}.obj`, mesh => {
+        let obj1 = mesh.children[0]
+        obj1.material.aoMap = ao;
+        obj1.material.normalMap = normal;
+        obj1.material.displacementScale = .5;
+        obj1.material.map = text;
+        obj1.material.bumpMap = text;
+        obj1.material.normalScale = new THREE.Vector2(2, 2)
+        obj1.castShadow = true;
+
+        let newMeshGeo = obj1.geometry;
+        newMeshGeo.center();
+        let newMeshMat = obj1.material;
+
+        for(let v = 0; v < 9; v++) {
+            let newMesh = new THREE.Mesh(newMeshGeo.clone(), newMeshMat.clone())
+            let scale = 0.01 * (Math.random()  + .5);
+            newMesh.scale.set(scale, scale, scale);
+            let num = Math.random() * Math.PI * 2
+             
+
+            newMesh.position.x = 2 + ((v + 1) * 2.25) * Math.cos(num);
+            newMesh.position.z = 2 + ((v + 1) * 2.25) * Math.sin(num);
+
+            let rc = new THREE.Raycaster();
+            let dir = new THREE.Vector3()
+            rc.set(newMesh.position, dir.subVectors( floor.position, newMesh.position).normalize())
+
+            let intersectionPoint = rc.intersectObjects([floor])
+            intersectionPoint = intersectionPoint[0]
+
+            newMesh.position.y = intersectionPoint.point.y
+
+            newMesh.rotation.y = Math.random() * Math.PI * 2;
+            newMesh.castShadow = true;
+            newMesh.receiveShadow = true;
+            // newMesh.position.y = -.75;
+
+
+            scene.add(newMesh)
+            objects.push(newMesh)
+        }
+    });
+}
+
 });
 
 /**
@@ -138,7 +157,7 @@ plane.receiveShadow = true;
 plane.rotation.x = - Math.PI * 0.5
 plane.position.y = - 1.85
 
-scene.add(plane)
+// scene.add(plane)
 
 /**
  * Particles
@@ -223,6 +242,7 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
+
 /**
  * Click event handler
  */
@@ -258,8 +278,15 @@ const cardParams = {
 }
 
 let oldTl = new gsap.timeline()
+let oldObjPos = camera.position
+let pathParticles = []
+let numPar = 250
 
-window.addEventListener('pointerdown', e => {
+window.addEventListener('pointerup', e => {
+    cursor.x = (e.clientX / sizes.width)*2-1;
+    cursor.y = -(e.clientY / sizes.height)*2+1;
+
+
     if (loaded) {
         raycaster.setFromCamera(cursor, camera)
         const intersection = raycaster.intersectObjects(objects)
@@ -273,10 +300,72 @@ window.addEventListener('pointerdown', e => {
         if (intersection.length) {
             if (intersection[0].object !== cardParams.target) {
                 let obj = intersection[0].object
-                console.log(obj)
-                obj.material.color = new THREE.Color('#dc871e')
+                obj.material.color = new THREE.Color('#d17300')
+                obj.material.emissive = new THREE.Color('#a06113')
                 obj.material.wireframe = true;
+                obj.castShadow = false;
+                obj.receiveShadow = false;
+                let pointLight = new THREE.PointLight(0xff5500, 10, 10, .9);
+                pointLight.position.set(
+                    obj.position.x,
+                    obj.position.y,
+                    obj.position.z
+                )
+                pointLight.castShadow = true;
+                console.log(pointLight.position, obj.position)
+                // scene.add(pointLight);
+                const curve = new THREE.CatmullRomCurve3([
+                    oldObjPos.clone(),
+                    camera.position.clone(),
+                    new THREE.Vector3(
+                        obj.position.x + 5,
+                        3,
+                        obj.position.z + 5
+                    ),
+                    new THREE.Vector3(
+                        obj.position.x,
+                        obj.position.y + .5,
+                        obj.position.z
+                    )
+                ])
+                oldObjPos = new THREE.Vector3(
+                    obj.position.x,
+                    obj.position.y + .5,
+                    obj.position.z
+                )
+                const points = curve.getPoints(numPar)
+                const pointMaterial = new THREE.ShaderMaterial({ 
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                vertexShader,
+                fragmentShader,
+                })
+                const pointGeo = new THREE.BufferGeometry();
+                const posArray = new Float32Array(numPar * 3);
+                const opacityArray = new Float32Array(numPar);
+                for (let i = 0; i < points.length; i++) {
+                    posArray[i*3 + 0] = points[i].x;
+                    posArray[i*3 + 1] = points[i].y;
+                    posArray[i*3 + 2] = points[i].z;
+                    opacityArray[i] = 1.;
+                }
+                const posAttr = new THREE.BufferAttribute(posArray, 3)
+                pointGeo.setAttribute('position', posAttr);
+                const opacityAttr = new THREE.BufferAttribute(opacityArray, 1);
+                pointGeo.setAttribute('opacity', opacityAttr)
+                const pointMesh = new THREE.Points(pointGeo, pointMaterial)
+                scene.add(pointMesh)
+                const timeOfCreation = clock.getElapsedTime()
 
+                if (pathParticles.length > 2) {
+                    scene.remove(pathParticles[0].particles)
+                    pathParticles.shift()
+                }
+                pathParticles.push({particles: pointMesh, path: curve, time: timeOfCreation})
+
+                
+
+                // scene.add(curveObject)
                 if (cardParams.visible) {
                     tl.to(
                         [cardTitle, cardPosition, cardRotation, cardMaterial, cardGeometry], 
@@ -298,7 +387,17 @@ window.addEventListener('pointerdown', e => {
                         oldTl.kill()
                         oldTl = tl;
                     })
+                } else {
+                    cardParams.target = obj;
                 }
+                tl.add(() => {
+                    cardTitle.innerHTML = 'ROCK' + obj.id
+                    cardPosition.innerHTML = `POSITION ${obj.position.x.toFixed(3)} ${obj.position.y.toFixed(3)} ${obj.position.z.toFixed(3)}`
+                    cardRotation.innerHTML = `ROTATION ${obj.rotation.x, obj.rotation.y, obj.rotation.z}`
+                    cardMaterial.innerHTML = `MATERIAL ${obj.material.type}`
+                    cardGeometry.innerHTML = `GEOMETRY ${obj.geometry.type}`
+                }, ">"
+                )
                 tl.to(cameraTarget, {
                     x: obj.position.x,
                     y: obj.position.y,
@@ -309,26 +408,17 @@ window.addEventListener('pointerdown', e => {
                     x: obj.position.x + 5,
                     z: obj.position.z + 5,
                     y: 4,
-                    duration: 3.5,
+                    duration: 2.5,
                     ease: "pow2.in"
                 }, 0)
                 tl.set(card, {
                     transformOrigin: 'center left'
                 })
-                tl.add(() => {
-                    cardTitle.innerHTML = 'ROCK' + obj.id
-                    cardPosition.innerHTML = `POSITION ${obj.position.x.toFixed(3)} ${obj.position.y.toFixed(3)} ${obj.position.z.toFixed(3)}`
-                    console.log(obj.rotation)
-                    cardRotation.innerHTML = `ROTATION ${obj.rotation.x, obj.rotation.y, obj.rotation.z}`
-                    cardMaterial.innerHTML = `MATERIAL ${obj.material.type}`
-                    cardGeometry.innerHTML = `GEOMETRY ${obj.geometry.type}`
-                }
-                )
                 tl.set(cardParams, {
                     target: obj,
                     visible: true,
                 }, ">-1")
-                tl.fromTo(card, {scaleX: 0}, {
+                tl.to(card, {
                     scaleX: 1,
                     duration: .5,
                     ease: "pow4.inOut"
@@ -338,7 +428,7 @@ window.addEventListener('pointerdown', e => {
                     duration: .15,
                     stagger: .05,
                     ease: "pow4.inOut"
-                })
+                }, ">-.4")
                 }
            
         } else {
@@ -360,7 +450,9 @@ window.addEventListener('pointerdown', e => {
                 oldTl = tl;
             })
         }
-}})
+    }
+    console.log(pathParticles)
+})
 
 
 /**
@@ -368,7 +460,7 @@ window.addEventListener('pointerdown', e => {
  */
 const composer = new EffectComposer(renderer)
 const renderPass = new RenderPass(scene, camera)
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(sizes.width, sizes.height), 0.204, 0.78, 0.201)
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(sizes.width, sizes.height), 0.134, 0.78, 0.201)
 
 composer.addPass(renderPass)
 composer.addPass(bloomPass)
@@ -394,11 +486,12 @@ gui.add( params, 'bloomRadius', 0.0, 1.0 ).step( 0.01 ).onChange( function ( val
     bloomPass.radius = Number( value );
 
 } );
+
 /**
  * Animate
  */
-const clock = new THREE.Clock()
-
+let allowPointerControl = true;
+let deviceOrientation = {a: 0, b: 0, g: 0}
 const tick = () =>
 {
     const elapsedTime = clock.getElapsedTime()
@@ -421,11 +514,39 @@ const tick = () =>
     cursorDom.style.left = cursorDomPos.x + 'px';
     cursorDom.style.top =  cursorDomPos.y + 'px';
 
+    if (allowPointerControl) {
+        camera.lookAt(cameraTarget)
 
-    camera.lookAt(cameraTarget)
+    } else {
+        // camera.rotation.x = deviceOrientation.b * Math.PI / 180;
+        // camera.rotation.y = deviceOrientation.g * Math.PI / 180 - 25;
+        // camera.rotation.z = deviceOrientation.a * Math.PI / 180;
+        // let e = new THREE.Euler()
+        // e.set(deviceOrientation.b, deviceOrientation.a, deviceOrientation.g, 'YXZ')
+        // let q0 = new THREE.Quaternion()
+        // q0.setFromEuler(e)
+        // camera.applyQuaternion(q0)
+
+    }
+
     camera.rotateY(-lerpedCursor.x * .95)
     camera.rotateX(lerpedCursor.y * .95)
     // controls.update()
+
+    for (let pathParticle of pathParticles) {
+        let pos = pathParticle.particles.geometry.attributes.position;
+        let opacity = pathParticle.particles.geometry.attributes.opacity;
+        for (let i = 0; i < numPar; i++) {
+            let j = Math.pow((i/numPar + (elapsedTime - pathParticle.time) * .25)%1, 3.5);
+            let p = pathParticle.path.getPointAt(j);
+            pos.array[i*3 + 0] = p.x;
+            pos.array[i*3 + 1] = p.y;
+            pos.array[i*3 + 2] = p.z;
+            opacity.array[i] = j;
+
+        }
+        pos.needsUpdate = true
+    }
 
     for (let particle of particles) {
         particle[0].position.x = radius * (Math.cos(particle[1] + elapsedTime * .01) + .1)
@@ -480,6 +601,16 @@ window.onload = () => {
         tl.add(() => {
             loaded = true
         })
+        // DeviceOrientationEvent.requestPermission().then(response => {
+        //     if (response == 'granted') {
+        //         window.addEventListener('deviceorientation', e => {
+        //             deviceOrientation.a = e.alpha
+        //             deviceOrientation.b = e.beta
+        //             deviceOrientation.g = e.gamma
+        //             allowPointerControl = false
+        //         })
+        //     }
+        // })
     }
 
     button.addEventListener('pointerover', () => {
